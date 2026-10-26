@@ -3,3 +3,11 @@ fileWatcherType = "none"
 
 [browser]
 gatherUsageStats = false
+
+[theme]
+base = "light"
+primaryColor = "#147d73"
+backgroundColor = "#f5f7fb"
+secondaryBackgroundColor = "#edf2f7"
+textColor = "#17314b"
+font = "sans serif"

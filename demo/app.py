@@ -584,7 +584,7 @@ def _bundle_path() -> Path:
 
 
 if st is not None:
-    @st.cache_resource(show_spinner="Checking the reviewed model bundle…")
+    @st.cache_resource(show_spinner="Loading the classifier…")
     def _cached_load_bundle(bundle_path: str, bundle_fingerprint: str) -> LoadedBundle:
         del bundle_fingerprint  # It is a cache key; the loaded files remain authoritative.
         return load_bundle(bundle_path)
@@ -635,40 +635,6 @@ def predict(batch: InputBatch, bundle: LoadedBundle, model_name: str) -> pd.Data
     return result
 
 
-def _metric_text(value: Any) -> str:
-    try:
-        number = float(value)
-    except (TypeError, ValueError):
-        return str(value)
-    if not math.isfinite(number):
-        return "N/A"
-    return f"{number:.2%}" if 0 <= number <= 1 else f"{number:.4g}"
-
-
-def _show_evidence(record: dict[str, Any], model_name: str) -> None:
-    if model_name == "T1":
-        st.info("T1 is the historical frozen model. Its earlier test result belongs to T1 only.")
-    else:
-        st.info("C+T1 is the selected 19-input model. Its test used the original partition previously examined for T1; it is not fresh independent confirmation.")
-    metrics = record.get("metrics", {})
-    fields = (
-        ("test_macro_f1", "Test Macro F1"),
-        ("test_accuracy", "Test accuracy"),
-        ("test_false_alarm_rate", "Test benign false-alarm rate"),
-        ("cv_macro_f1_mean", "Grouped CV Macro F1"),
-        ("cv_macro_f1_std", "CV sample SD"),
-        ("validation_macro_f1", "Validation Macro F1"),
-        ("validation_accuracy", "Validation accuracy"),
-        ("validation_false_alarm_rate", "Validation benign false-alarm rate"),
-    )
-    visible = [(label, _metric_text(metrics[key])) for key, label in fields if key in metrics]
-    for start in range(0, len(visible), 3):
-        group = visible[start:start + 3]
-        columns = st.columns(len(group))
-        for column, (label, value) in zip(columns, group):
-            column.metric(label, value)
-
-
 def _sample_batch(bundle: LoadedBundle) -> InputBatch:
     return validate_input_table(
         bundle.sample_inputs.assign(actual_label=bundle.sample_labels.to_numpy()),
@@ -680,144 +646,307 @@ def _uploaded_batch(uploaded: Any, class_labels: tuple[str, ...]) -> InputBatch:
     return parse_uploaded_csv(uploaded.getvalue(), class_labels=class_labels)
 
 
+# Interface helpers use the already verified prediction functions above.
+from html import escape
+from time import monotonic
+from demo.presentation import EXAMPLES, SCENES, SELECTED_MODEL, analyst_note, prediction_key, replay_table, title
+
+BOT = '<div class="tw-bot" role="img" aria-label="Friendly classifier robot"><span class="bot-antenna"></span><div class="bot-head"><div class="bot-face"><i class="bot-eye"></i><i class="bot-eye"></i><span class="bot-smile"></span></div></div><span class="bot-feet"></span></div>'
+MONITOR = '<div class="tw-monitor" aria-hidden="true"><span class="monitor-screen"><i></i><i></i><i></i></span><span class="monitor-stand"></span></div>'
+
+
+
+def _html(content: str) -> None:
+    st.html(content)
+
+
+def _subset_batch(bundle: LoadedBundle, sample_ids) -> InputBatch:
+    whole = _sample_batch(bundle)
+    positions = {sample_id: index for index, sample_id in enumerate(whole.sample_ids)}
+    indices = [positions[sample_id] for sample_id in sample_ids]
+    return InputBatch(whole.baseline.iloc[indices].reset_index(drop=True),
+                      whole.sample_ids.iloc[indices].reset_index(drop=True),
+                      whole.actual_labels.iloc[indices].reset_index(drop=True))
+
+
+def _window_summary(batch: InputBatch) -> None:
+    if len(batch.baseline) == 1:
+        row = batch.baseline.iloc[0]
+        stats = [(f'{int(row.packet_count):,}', 'packets'),
+                 (f'{row.total_bytes / 1024:,.1f} KB', 'captured bytes'),
+                 (f'{row.duration_seconds:,.2f} s', 'observed duration')]
+    else:
+        stats = [(f'{len(batch.baseline):,}', 'traffic windows'),
+                 (f'{batch.baseline.packet_count.sum():,.0f}', 'packets in total'),
+                 (f'{batch.baseline.total_bytes.sum() / 1024:,.1f} KB', 'captured bytes')]
+    _html('<div class="tw-stats">' + ''.join(
+        f'<div class="tw-stat"><strong>{escape(value)}</strong><span>{escape(label)}</span></div>'
+        for value, label in stats) + '</div>')
+
+
+def _prediction_card(label: str) -> None:
+    flagged = label != 'BENIGN'
+    status = 'Needs analyst review' if flagged else 'No alert from the model'
+    explanation = ('The model flagged this window as a possible attack. An analyst would check the alert.'
+                   if flagged else 'The model classified this window as normal traffic.')
+    _html(f'<div class="tw-result {"attack" if flagged else ""}">'
+          f'<div class="tw-status"><span class="tw-dot"></span>{status}</div>'
+          f'<h3>{escape(title(label))}</h3><p>{explanation}</p></div>')
+
+
+def _render_prediction(bundle: LoadedBundle) -> None:
+    input_column, output_column = st.columns([1, 1], gap='large')
+    batch = None
+    with input_column:
+        with st.container(border=True, key='input-card'):
+            _html('<div class="tw-step">01 / Input</div><h2 class="tw-title">Choose some traffic</h2>')
+            source = st.radio('Input source', ['Try an example', 'Upload CSV'], horizontal=True,
+                              label_visibility='collapsed', key='source_mode')
+            if source == 'Try an example':
+                sample_id = st.selectbox('Choose an example', list(EXAMPLES),
+                    format_func=lambda value: EXAMPLES[value], key='example_id')
+                batch = _subset_batch(bundle, [sample_id])
+                st.caption('A real saved traffic window from our validation examples.')
+            else:
+                st.caption('Upload prepared conversation-window measurements. One CSV row is one window.')
+                uploaded = st.file_uploader('Choose a prepared CSV', type=['csv'], key='measurements_upload',
+                    help=f'Up to {MAX_UPLOAD_ROWS:,} rows and 2 MB. Include the fifteen baseline measurements.')
+                if uploaded is not None:
+                    try:
+                        batch = _uploaded_batch(uploaded, bundle.class_labels)
+                    except DemoInputError as exc:
+                        st.error(str(exc))
+                with st.expander('Get a sample file or template'):
+                    st.download_button('Example CSV',
+                        (bundle.root / 'samples/sample_inputs.csv').read_bytes(),
+                        file_name='example_traffic.csv', mime='text/csv')
+                    st.download_button('Blank CSV template', input_template_csv(),
+                        file_name='traffic_template.csv', mime='text/csv')
+                    st.caption('Raw packet captures need the project preprocessing step first.')
+            if batch is not None:
+                _window_summary(batch)
+                with st.expander('Look at the measurements'):
+                    st.dataframe(batch.baseline.head(100), hide_index=True, width='stretch')
+                    st.caption('The model also calculates four direction relationships from these values.')
+            clicked = st.button('Predict traffic', type='primary', width='stretch',
+                                disabled=batch is None, key='predict_traffic')
+            _html('<div class="tw-how"><b>Traffic summary</b><span>→</span><b>Saved model</b><span>→</span><b>Prediction</b></div>')
+    key = None if batch is None else prediction_key(batch.baseline, batch.sample_ids,
+        bundle.manifest['models'][SELECTED_MODEL]['sha256'], batch.actual_labels)
+    if clicked:
+        try:
+            result = predict(batch, bundle, SELECTED_MODEL)
+            st.session_state['prediction_result'] = {'key': key, 'table': result}
+        except (BundleError, DemoInputError, ValueError) as exc:
+            st.error(str(exc))
+    saved = st.session_state.get('prediction_result')
+    result = saved['table'] if saved and saved['key'] == key else None
+    with output_column:
+        _html('<div class="tw-step">02 / Result</div><h2 class="tw-title">What does the model see?</h2>')
+        if result is None:
+            _html('<div class="tw-result empty">' + BOT +
+                  '<h3>Ready when you are</h3><p>Choose an example and click <strong>Predict traffic</strong>.</p></div>')
+        elif len(result) == 1:
+            label = str(result.iloc[0].predicted_label)
+            _prediction_card(label)
+            if 'actual_label' in result:
+                actual = str(result.iloc[0].actual_label)
+                if actual == label:
+                    st.caption(f'Matches the recorded label: {title(actual)}.')
+                else:
+                    st.warning(f'Recorded label: {title(actual)}. ' +
+                        ('This is a false alarm.' if actual == 'BENIGN' else 'The model got this example wrong.'))
+        else:
+            flagged = int(result.predicted_label.ne('BENIGN').sum())
+            c1, c2 = st.columns(2)
+            c1.metric('Needs review', flagged)
+            c2.metric('Predicted normal', len(result) - flagged)
+            display = result[['sample_id', 'predicted_label']].rename(
+                columns={'sample_id': 'Window', 'predicted_label': 'Prediction'})
+            display['Prediction'] = display.Prediction.map(title)
+            st.dataframe(display, hide_index=True, width='stretch', height=260)
+            if 'actual_label' in result:
+                with st.expander('Compare with the supplied labels'):
+                    st.dataframe(result[['sample_id', 'actual_label', 'predicted_label', 'correct']],
+                                 hide_index=True, width='stretch')
+                    st.caption('This compares only these uploaded rows; it is not a new model benchmark.')
+        if result is not None:
+            st.download_button('Download prediction', result.to_csv(index=False).encode(),
+                file_name='traffic_predictions.csv', mime='text/csv', width='stretch', key='result_download')
+        st.caption('Each prediction uses the selected 19-input model. No training happens here.')
+
+
+def _reset_replay() -> None:
+    st.session_state['sim_cursor'] = 0
+    st.session_state['sim_playing'] = False
+    st.session_state['sim_last_tick'] = monotonic()
+    st.session_state['sim_reviewed'] = []
+
+
+def _simulation_source(bundle: LoadedBundle) -> pd.DataFrame:
+    key = bundle.manifest['models'][SELECTED_MODEL]['sha256'] + '|office_replay_v1'
+    cached = st.session_state.get('simulation_predictions')
+    if cached is None or cached['key'] != key:
+        # Sample selection chooses the story; labels never enter predict().
+        ids = list(dict.fromkeys(scene[0] for scene in SCENES))
+        source = predict(_subset_batch(bundle, ids), bundle, SELECTED_MODEL)
+        table = replay_table(source)
+        st.session_state['simulation_predictions'] = {'key': key, 'table': table}
+        _reset_replay()
+    return st.session_state['simulation_predictions']['table']
+
+
+def _render_simulation(bundle: LoadedBundle) -> None:
+    table = _simulation_source(bundle)
+    if 'sim_cursor' not in st.session_state:
+        _reset_replay()
+    _html('<span class="tw-label">SIMULATION · SAVED TRAFFIC</span>'
+          '<h2 class="tw-title" style="margin-top:.8rem">A little shift at the analyst’s desk</h2>'
+          '<p class="tw-muted">Watch traffic summaries arrive, get a prediction and enter the review queue.</p>')
+    _html('<div class="tw-network"><div class="tw-node"><div class="tw-node-icon">' + MONITOR +
+          '</div><strong>Office devices</strong><small>Prepared traffic windows</small></div>'
+          '<div class="tw-arrow">→</div><div class="tw-node">' + BOT +
+          '<strong>Our classifier</strong><small>Predicts a traffic label</small></div>'
+          '<div class="tw-arrow">→</div><div class="tw-node"><div class="tw-node-icon">' + MONITOR +
+          '</div><strong>Analyst’s desk</strong><small>Reviews flagged windows</small></div></div>')
+    st.caption('Real model predictions on selected saved examples. Device names, times and arrival order are fictional. No network is connected.')
+    _replay_fragment(table)
+
+
+def _replay_controls(table: pd.DataFrame) -> None:
+    """One bounded replay. Timer ticks advance at most one row; pause stops it."""
+    total = len(table)
+    c1, c2, c3 = st.columns([1.4, 1.2, 1])
+    playing = st.session_state.get('sim_playing', False)
+    if c1.button('Pause replay' if playing else 'Play simulation', type='primary',
+                 width='stretch', key='sim_play'):
+        if playing:
+            st.session_state['sim_playing'] = False
+        else:
+            if st.session_state['sim_cursor'] >= total:
+                _reset_replay()
+            st.session_state['sim_playing'] = True
+            st.session_state['sim_last_tick'] = monotonic()
+            if st.session_state['sim_cursor'] == 0:
+                st.session_state['sim_cursor'] = 1
+        st.rerun()
+    if c2.button('Next window', width='stretch', key='sim_next',
+                 disabled=playing or st.session_state['sim_cursor'] >= total):
+        st.session_state['sim_cursor'] += 1
+        st.session_state['sim_last_tick'] = monotonic()
+    if c3.button('Reset', width='stretch', key='sim_reset'):
+        _reset_replay()
+        st.rerun()
+    if (st.session_state.get('sim_playing')
+            and monotonic() - st.session_state.get('sim_last_tick', 0) >= 1.9):
+        st.session_state['sim_cursor'] = min(total, st.session_state['sim_cursor'] + 1)
+        st.session_state['sim_last_tick'] = monotonic()
+        if st.session_state['sim_cursor'] == total:
+            st.session_state['sim_playing'] = False
+            st.rerun()
+    cursor = st.session_state['sim_cursor']
+    visible = table.iloc[:cursor]
+    flagged = int(visible.needs_review.sum())
+    c1, c2, c3 = st.columns(3)
+    c1.metric('Windows checked', f'{cursor} / {total}')
+    c2.metric('Flagged for review', flagged)
+    c3.metric('Predicted normal', cursor - flagged)
+    st.progress(cursor / total)
+    if not cursor:
+        _html('<div class="tw-result empty"><h3>The office is waiting</h3>'
+              '<p>Press Play to replay twelve windows, or use Next window to explain each step.</p></div>')
+        return
+    latest = visible.iloc[-1]
+    story, queue = st.columns([1.1, 1.3], gap='large')
+    with story:
+        st.caption(f'LATEST WINDOW · {latest.time} · {latest.device} (simulated)')
+        _prediction_card(latest.predicted_label)
+        st.caption(analyst_note(latest.predicted_label))
+        if latest.needs_review:
+            reviewed = latest.event_id in st.session_state['sim_reviewed']
+            if st.button('Reviewed ✓' if reviewed else 'Mark as reviewed', disabled=reviewed,
+                         key=f'review_{latest.event_id}'):
+                st.session_state['sim_reviewed'] = [*st.session_state['sim_reviewed'], latest.event_id]
+                st.rerun()
+    with queue:
+        _html('<h3 class="tw-title">Activity feed</h3>')
+        feed = visible.iloc[::-1].copy()
+        feed['Status'] = ['Reviewed' if row.event_id in st.session_state['sim_reviewed']
+                          else 'Needs review' if row.needs_review else 'No alert'
+                          for row in feed.itertuples()]
+        feed['Prediction'] = feed.predicted_label.map(title)
+        st.dataframe(feed[['time', 'device', 'Prediction', 'Status']].rename(
+            columns={'time': 'Demo time', 'device': 'Simulated device'}),
+            hide_index=True, width='stretch', height=315)
+    with st.expander('Did the model get these windows right?'):
+        truth = visible[['time', 'device', 'actual_label', 'predicted_label']].copy()
+        truth['Outcome'] = ['Correct' if row.actual_label == row.predicted_label else
+                            'False alarm' if row.actual_label == 'BENIGN' else
+                            'Missed attack' if row.predicted_label == 'BENIGN' else 'Wrong attack type'
+                            for row in visible.itertuples()]
+        truth['actual_label'] = truth.actual_label.map(title)
+        truth['predicted_label'] = truth.predicted_label.map(title)
+        st.dataframe(truth.rename(columns={'time': 'Demo time', 'device': 'Simulated device',
+            'actual_label': 'Recorded label', 'predicted_label': 'Model prediction'}),
+            hide_index=True, width='stretch')
+        st.caption('Selected examples include mistakes. One normal example is deliberately replayed twice for the story; these twelve events are not an accuracy benchmark. Marking reviewed changes only this demo queue.')
+    if cursor == total:
+        st.caption('End of replay. The analyst still checks other evidence; a predicted normal window can contain a missed attack.')
+
+
+if st is not None:
+    _replay_fragment = st.fragment(run_every='2s')(_replay_controls)
+else:
+    _replay_fragment = _replay_controls
+
+
+def _about_model(bundle: LoadedBundle) -> None:
+    with st.expander('About this model & example files'):
+        st.write('The selected C+T1 model is a Random Forest with 19 inputs: 15 extracted traffic measurements and four calculated direction relationships. It uses 80 trees, depth 20 and minimum leaf size 2. The app loads the saved model; it never fits or updates it.')
+        metrics = bundle.manifest['models'][SELECTED_MODEL]['metrics']
+        st.write(f"Recorded test: Macro F1 {metrics['test_macro_f1']:.2%} · accuracy {metrics['test_accuracy']:.2%} · benign false alarms {metrics['test_false_alarm_rate']:.2%}.")
+        st.caption('The original test was previously examined for an earlier model, so this is not fresh independent confirmation. Heartbleed has no held-out score. Small rare-class support limits conclusions.')
+        st.write('Examples come from 31 selected real validation rows. They include correct predictions and mistakes; they are not a new performance estimate. No original device names or addresses are published.')
+        st.markdown('[Project reviewer](https://landotin.github.io/cicids2017-project-reviewer/) · [Code and evidence](https://github.com/Landotin/cicids2017-model-demo)')
+        st.dataframe(pd.DataFrame([{'Measurement': name, 'Meaning': description}
+            for name, description in FEATURE_DESCRIPTIONS.items()]), hide_index=True, width='stretch')
+        for filename, label in [('sample_inputs.csv', 'Download example inputs'),
+                                ('sample_labels.csv', 'Download example labels'),
+                                ('sample_predictions.csv', 'Download recorded predictions')]:
+            st.download_button(label, (bundle.root / 'samples' / filename).read_bytes(),
+                               file_name=filename, mime='text/csv', key='about_' + filename)
+
+
 def main() -> None:
     if st is None:
-        raise RuntimeError("Install demo/requirements.txt before launching this Streamlit app.")
-    st.set_page_config(page_title="CICIDS2017 Flow Demo", page_icon="🛡️", layout="centered")
+        raise RuntimeError('Install demo/requirements.txt before launching this Streamlit app.')
+    st.set_page_config(page_title='Traffic Watch · Network attack demo', page_icon='🛡️', layout='wide')
     if st.__version__ != PINNED_STREAMLIT_VERSION:
-        st.error(
-            f"This demo expects Streamlit {PINNED_STREAMLIT_VERSION}; "
-            f"the current runtime is {st.__version__}. Install demo/requirements.txt."
-        )
+        st.error(f'Use Streamlit {PINNED_STREAMLIT_VERSION} from demo/requirements.txt.')
         st.stop()
-    st.markdown(
-        """
-        <style>
-        .block-container {max-width: 1120px; padding-top: 1.6rem; padding-bottom: 3rem;}
-        [data-testid="stMetric"] {background: #f3f7f8; border-radius: 12px; padding: .7rem 1rem;}
-        .small-note {color: #53636b; font-size: .95rem;}
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.title("Traffic window classifier")
-    st.caption("A saved-model demonstration for prepared 60-second conversation windows.")
-    st.warning("This is not live network monitoring. Packet-to-window preparation happens before this app.")
-
+    st.html('<style>' + Path(__file__).with_name('style.css').read_text() + '</style>')
+    _html('<header class="tw-header"><div><div class="tw-eyebrow">CICIDS2017 / Interactive model demo</div>'
+          '<h1>Traffic Watch<span style="color:#52a294">.</span></h1>'
+          '<p>A small window into how our model recognises network attacks.</p></div>'
+          '<span class="tw-stamp">Saved model · Ready to predict</span></header>')
     try:
         bundle = load_cached_bundle(_bundle_path())
     except BundleError as exc:
         st.error(str(exc))
         st.stop()
-
-    models_record = bundle.manifest["models"]
-    st.info("C+T1 is the selected study model: mean grouped CV Macro F1 "
-            "was 72.30%, versus T1's 71.43%. The gain is small across three folds. "
-            "C+T1 reached 87.31% test Macro F1 without refitting. This test was already examined for T1, so it is not fresh independent evidence.")
-    with st.expander("Download the reviewed example files"):
-        st.caption("These 31 selected validation rows include correct predictions and mistakes. "
-                   "They are examples for the presentation, not a performance benchmark.")
-        for filename, title in (("sample_inputs.csv", "Download example measurements"),
-                                ("sample_labels.csv", "Download actual labels"),
-                                ("sample_predictions.csv", "Download reviewed predictions")):
-            st.download_button(title, data=(bundle.root / "samples" / filename).read_bytes(),
-                               file_name=filename, mime="text/csv", width="stretch")
-    source = st.selectbox("Choose input", ("Reviewed example", "Upload a prepared CSV"))
-    batch: InputBatch | None = None
-    if source == "Reviewed example":
-        batch = _sample_batch(bundle)
-        sample_note = bundle.root / "samples" / "SAMPLE_DATA.md"
-        st.caption("Small reviewed validation examples. They illustrate model behavior and are not a benchmark.")
-        if sample_note.is_file():
-            with st.expander("Example provenance"):
-                st.markdown(sample_note.read_text(encoding="utf-8"))
-    else:
-        st.markdown(
-            "Upload rows prepared from **60-second conversation windows**. Start with the 15-column "
-            "template; add one row per window. Optional `actual_label` or `label` is used only for comparison."
-        )
-        st.download_button(
-            "Download 15-measurement CSV template",
-            data=input_template_csv(),
-            file_name="prepared_window_inputs_template.csv",
-            mime="text/csv",
-            width="stretch",
-        )
-        uploaded = st.file_uploader(
-            "Upload measurements from prepared windows",
-            type=("csv",),
-            help=(f"CSV size limit: {MAX_UPLOAD_BYTES:,} bytes; "
-                  f"row limit: {MAX_UPLOAD_ROWS:,}. Include the fifteen baseline columns. "
-                  "Known IDs, labels, and metadata are ignored; other extra columns are rejected."),
-        )
-        if uploaded is not None:
-            try:
-                batch = _uploaded_batch(uploaded, bundle.class_labels)
-            except DemoInputError as exc:
-                st.error(str(exc))
-
-    feature_descriptions = pd.DataFrame(
-        [{"measurement": name, "meaning": FEATURE_DESCRIPTIONS[name]} for name in BASE_FEATURES]
-    )
-    st.subheader("The fifteen baseline measurements")
-    with st.expander("View names and short descriptions"):
-        st.dataframe(feature_descriptions, hide_index=True, width="stretch")
-
-    st.subheader("Choose a saved model")
-    selected = st.selectbox(
-        "Model",
-        MODEL_NAMES,
-        index=1,
-        format_func=lambda name: "C+T1 · 19 inputs · selected" if name == "CT1"
-        else "T1 · 15 inputs · historical",
-    )
-    _show_evidence(models_record[selected], selected)
-    st.caption(f"Evidence status: `{models_record[selected]['evidence_status']}`")
-    st.caption("Prediction uses only the defined measurements. Labels, sample IDs, and other metadata are excluded.")
-
-    if batch is None:
-        st.stop()
-
-    st.subheader(f"Input preview · {len(batch.baseline):,} rows")
-    st.dataframe(batch.baseline.head(100), hide_index=True, width="stretch")
-    if len(batch.baseline) > 100:
-        st.caption("Showing the first 100 rows. Predictions cover every validated row.")
-
-    reveal = False
-    if selected == "CT1":
-        reveal = st.checkbox("Show the four calculated C inputs")
-    if reveal:
-        try:
-            transformed = prepare_model_inputs(batch, selected)
-            st.dataframe(transformed.loc[:, list(ENGINEERED_FEATURES)].head(100),
-                         hide_index=True, width="stretch")
-        except (BundleError, DemoInputError) as exc:
-            st.error(str(exc))
-            st.stop()
-
-    if st.button("Predict", type="primary", width="stretch"):
-        try:
-            predictions = predict(batch, bundle, selected)
-        except (BundleError, DemoInputError, ValueError) as exc:
-            st.error(str(exc))
-            st.stop()
-        st.subheader("Predictions")
-        st.dataframe(predictions, hide_index=True, width="stretch")
-        if "correct" in predictions:
-            correct = int(predictions["correct"].sum())
-            st.caption(f"{correct:,} of {len(predictions):,} supplied labels matched. "
-                       "This checks these rows only; it is not a new performance estimate.")
-        st.download_button(
-            "Download prediction table",
-            data=predictions.to_csv(index=False).encode("utf-8"),
-            file_name=f"{selected.lower()}_predictions.csv",
-            mime="text/csv",
-            width="stretch",
-        )
-
-    st.divider()
-    st.caption("Clicking Predict runs inference only. The app never fits or updates a model.")
+    prediction_tab, simulation_tab = st.tabs(['Try a prediction', 'Workplace simulation'],
+                                           key='demo_view', on_change='rerun')
+    if prediction_tab.open:
+        st.session_state['sim_playing'] = False
+        with prediction_tab:
+            _render_prediction(bundle)
+    if simulation_tab.open:
+        with simulation_tab:
+            _render_simulation(bundle)
+    _about_model(bundle)
+    _html('<footer class="tw-footer"><span>A classroom demonstration using saved traffic windows.</span>'
+          '<a href="https://landotin.github.io/cicids2017-project-reviewer/">Explore the project ↗</a></footer>')
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

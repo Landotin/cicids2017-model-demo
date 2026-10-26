@@ -2,15 +2,16 @@
 
 **[Open the live demonstration](https://cicids2017-model-demo.streamlit.app/)**
 
-Use saved Random Forest models to classify prepared network-traffic windows. Choose **T1** (historical model with a completed final test) or **C+T1 / CT1** (selected study model).
+**Traffic Watch** is a simple demonstration of the selected 19-input model. The homepage focuses on choosing traffic, predicting and reading the result. Research settings and recorded test scores are in the collapsed **About this model & example files** section.
 
-| Evidence | T1 | C+T1 |
-|---|---:|---:|
-| Mean grouped CV Macro F1 | 71.43% | 72.30% |
-| Validation Macro F1 | 77.75% | 78.03% |
-| Original test Macro F1 | 85.77% (historical) | 87.31% (previously examined test) |
+## Two ways to explore
 
-CT1 test accuracy is **99.52%** and benign false alarms are **2,213 / 417,513 (0.53%)**. This same test was previously examined for T1; CT1 was not fitted on it and was frozen before its own scoring, but this is **not fresh independent confirmation**. No tuning used these scores. The small CV gain does not establish a reliable improvement. See [reviewed results](RESULTS.md) and [prediction reconstruction](REVIEW.json). This app predicts only; it does not train or monitor live network traffic.
+- **Try a prediction:** choose one of four real saved validation examples, including a false alarm, or upload a prepared CSV. The result says whether the model flagged the window and names its predicted traffic class. Download the exact prediction table.
+- **Workplace simulation:** replay twelve illustrated office events with real saved-model predictions. Play, pause, advance one window, reset or mark an alert as reviewed. The activity feed shows what a network analyst might see; the optional comparison reveals false alarms and missed attacks.
+
+The simulation uses eleven distinct real validation examples, with one normal example deliberately replayed twice. Device aliases, clock times and arrival order are fictional. It has no network connection and takes no firewall, blocking or other operational action. Marking reviewed affects only the current browser session. This is a selected demonstration, not a performance benchmark.
+
+The exact original model and feature formulas are unchanged. The historical T1 model remains in the bundle for reproducibility; the interface uses the selected C+T1 model automatically.
 
 ## Run on your computer
 
@@ -27,14 +28,13 @@ Open the local address printed by Streamlit. Both reviewed model files and 31 re
 
 ## Try the demonstration
 
-1. Keep **Reviewed example** to inspect the 31 selected rows, or download the measurements and upload them through **Upload a prepared CSV**.
-2. Select T1 or C+T1. For C+T1, optionally show the four calculated inputs.
-3. Click **Predict**. Inspect actual labels, predicted labels and mistakes.
-4. Download the prediction table. Download example inputs, actual labels and reviewed predictions from the example-files section.
+1. Under **Try a prediction**, choose an example and click **Predict traffic**.
+2. Read the prediction and compare it with the saved label. **A tricky traffic window** shows a real false alarm, so the demonstration also explains mistakes.
+3. To try several windows, select **Upload CSV**. Use **Example CSV** or **Blank CSV template** from its collapsed help section. Uploads need the fifteen baseline measurements; the app calculates four additional values itself. A raw PCAP is prepared in the project notebook first.
+4. Open **Workplace simulation** and click **Play simulation**, or use **Next window** to explain the workflow step by step. Pause to review an alert. Returning to the prediction tab pauses the replay.
+5. Open **About this model & example files** for measurement definitions, recorded test scores, provenance and sample downloads.
 
-The input has fifteen named numerical measurements for each prepared 60-second conversation window. The app calculates C's extra four inputs itself. It validates counts and totals, rejects malformed files, and never uses labels or identifiers as predictors. The blank template is available in upload mode. A PCAP file cannot be uploaded directly; packet decoding and window preparation happen earlier in the project.
-
-The examples cover fourteen held-out classes and include correct and incorrect predictions. They are selected illustrations, not a benchmark. Heartbleed has no independent held-out examples. No IP addresses or conversation identifiers are published.
+Labels, sample IDs and display-only simulated device names are never model inputs. Uploads retain the original checks: finite measurements, count/byte consistency, allowed columns, unique row IDs, no more than 10,000 rows or 2 MB. Results persist across ordinary reruns but are cleared from view when inputs, comparison labels or the model change.
 
 ## Streamlit Community Cloud setup
 
@@ -49,3 +49,9 @@ The hosted app is live. Both hosted prediction downloads match all 31 saved exam
 Public explanations: [project reviewer](https://landotin.github.io/cicids2017-project-reviewer/). Original research repository: [CICIDS2017-Attack-Classification](https://github.com/xtian413/CICIDS2017-Attack-Classification) (project access may be required).
 
 Reviewed 26 October 2026. CT1's test metrics and full row/matrix review are in TEST_EVIDENCE. T1's historical result is unchanged. The separate official-flow comparison is outside the current study/report.
+
+## Visual audit and verification
+
+The earlier screen put a warning, comparison prose, eight research metrics, a model selector and an input table before the prediction result. The new screen uses two compact panes, a primary action, a readable decision card and optional detail panels. A small CSS robot and office diagram introduce the replay; neither requires external image services or scripts.
+
+Focused checks cover unchanged saved predictions, label exclusion from inference, input/result identity, stale-result prevention, replay provenance and play/pause/review/reset behavior. Run `python -m unittest discover -s tests -v` after installing the pinned requirements. All data and model evidence under TEST_EVIDENCE and demo/bundle remains the historical research record; this interface redesign does not train or re-evaluate a model.
