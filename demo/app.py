@@ -706,7 +706,7 @@ def _render_prediction(bundle: LoadedBundle) -> None:
                 sample_id = st.selectbox('Choose an example', list(EXAMPLES),
                     format_func=lambda value: EXAMPLES[value], key='example_id')
                 batch = _subset_batch(bundle, [sample_id])
-                st.caption('A real saved traffic window from our validation examples.')
+                st.caption('A real traffic example from our saved dataset.')
             else:
                 st.caption('Upload prepared conversation-window measurements. One CSV row is one window.')
                 uploaded = st.file_uploader('Choose a prepared CSV', type=['csv'], key='measurements_upload',
@@ -773,7 +773,7 @@ def _render_prediction(bundle: LoadedBundle) -> None:
         if result is not None:
             st.download_button('Download prediction', result.to_csv(index=False).encode(),
                 file_name='traffic_predictions.csv', mime='text/csv', width='stretch', key='result_download')
-        st.caption('Each prediction uses the selected 19-input model. No training happens here.')
+        st.caption('A flagged window is a prompt for review, not an automatic block.')
 
 
 def _reset_replay() -> None:
