@@ -1,5 +1,7 @@
 # CICIDS2017 traffic window demonstration
 
+**[Open the live demonstration](https://cicids2017-model-demo.streamlit.app/)**
+
 Use saved Random Forest models to classify prepared network-traffic windows. Choose **T1** (historical model with a completed final test) or **C+T1 / CT1** (preferred exploratory follow-up).
 
 | Evidence | T1 | C+T1 |
@@ -38,7 +40,7 @@ The examples cover fourteen held-out classes and include correct and incorrect p
 
 After signing in with the intended account, create an app using this public repository, branch `main`, entrypoint `demo/app.py`, and **Python 3.12** under Advanced settings. Dependencies are pinned beside the app. There are no secrets or Drive mounts to configure. After deployment, check both models, predictions, downloads and phone layout before recording a live URL.
 
-The local fallback above is ready independently of hosting. This repository's existence does not mean the hosted app is already live.
+The hosted app is live. Both hosted prediction downloads match all 31 saved example predictions, and the example measurements download matches the published bytes. The local fallback above remains available for presentations.
 
 ## Reproducibility
 
