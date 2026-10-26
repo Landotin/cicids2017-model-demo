@@ -1,0 +1,5 @@
+# Sample data provenance
+
+The examples are selected from the saved validation partition (3fabf021cbbfb9e9cb930fed0676f7edcdf89d2a17f8e0989b33d654229357d5; 481,841 rows). Selection keeps up to two rows for each available class, preferring one correct and one incorrect CT1 example where both exist, then adds up to three extra mistakes from the lowest supported validation F1 classes. The selection is deterministic by saved validation row position.
+
+The exported sample contains 31 rows and covers: BENIGN, Bot, DDoS, DoS GoldenEye, DoS Hulk, DoS Slowhttptest, DoS slowloris, FTP-Patator, Infiltration, PortScan, SSH-Patator, Web Attack – Brute Force, Web Attack – Sql Injection, Web Attack – XSS. Heartbleed is omitted because no held-out examples exist. The input file contains only sample IDs and the fifteen baseline measurements; actual labels are in a separate file. No conversation identifiers, IP addresses, or test rows are included. These selected illustrations are not a performance benchmark. CT1 has no independent test result. T1 is the historically frozen model and its historical test metrics remain attached only to T1.

@@ -1,0 +1,1 @@
+See [the project README](../README.md) for instructions, sample downloads, model evidence, and deployment settings. App entrypoint: `demo/app.py`. Pinned dependencies: `demo/requirements.txt`. The reviewed models and sample files are in `demo/bundle/`.

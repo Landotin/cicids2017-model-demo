@@ -1,0 +1,32 @@
+sample_id,actual_label
+validation-000000,BENIGN
+validation-068045,BENIGN
+validation-085341,FTP-Patator
+validation-093082,FTP-Patator
+validation-131213,SSH-Patator
+validation-131544,SSH-Patator
+validation-175485,DoS slowloris
+validation-175492,DoS slowloris
+validation-181987,DoS Slowhttptest
+validation-182112,DoS Slowhttptest
+validation-189923,DoS Hulk
+validation-195755,DoS Hulk
+validation-226279,DoS GoldenEye
+validation-227814,DoS GoldenEye
+validation-288462,Web Attack – Brute Force
+validation-288546,Web Attack – Brute Force
+validation-299537,Web Attack – XSS
+validation-299634,Web Attack – XSS
+validation-300260,Web Attack – XSS
+validation-303132,Web Attack – Sql Injection
+validation-303393,Web Attack – Sql Injection
+validation-330589,Infiltration
+validation-331863,Infiltration
+validation-331867,Infiltration
+validation-373214,Bot
+validation-387702,Bot
+validation-388196,Bot
+validation-399832,PortScan
+validation-406529,PortScan
+validation-458072,DDoS
+validation-459353,DDoS

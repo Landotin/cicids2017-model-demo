@@ -1,0 +1,63 @@
+sample_id,model,predicted_label
+validation-000000,CT1,BENIGN
+validation-068045,CT1,DoS Slowhttptest
+validation-085341,CT1,FTP-Patator
+validation-093082,CT1,Web Attack – XSS
+validation-131213,CT1,SSH-Patator
+validation-131544,CT1,BENIGN
+validation-175485,CT1,BENIGN
+validation-175492,CT1,DoS slowloris
+validation-181987,CT1,DoS Slowhttptest
+validation-182112,CT1,DoS slowloris
+validation-189923,CT1,DoS Hulk
+validation-195755,CT1,DoS GoldenEye
+validation-226279,CT1,DoS GoldenEye
+validation-227814,CT1,DoS Hulk
+validation-288462,CT1,Web Attack – XSS
+validation-288546,CT1,Web Attack – Brute Force
+validation-299537,CT1,BENIGN
+validation-299634,CT1,Web Attack – XSS
+validation-300260,CT1,Web Attack – Brute Force
+validation-303132,CT1,BENIGN
+validation-303393,CT1,BENIGN
+validation-330589,CT1,BENIGN
+validation-331863,CT1,Bot
+validation-331867,CT1,Infiltration
+validation-373214,CT1,Bot
+validation-387702,CT1,BENIGN
+validation-388196,CT1,BENIGN
+validation-399832,CT1,BENIGN
+validation-406529,CT1,PortScan
+validation-458072,CT1,DDoS
+validation-459353,CT1,BENIGN
+validation-000000,T1,BENIGN
+validation-068045,T1,DoS Slowhttptest
+validation-085341,T1,FTP-Patator
+validation-093082,T1,Web Attack – XSS
+validation-131213,T1,SSH-Patator
+validation-131544,T1,BENIGN
+validation-175485,T1,BENIGN
+validation-175492,T1,DoS slowloris
+validation-181987,T1,DoS Slowhttptest
+validation-182112,T1,DoS slowloris
+validation-189923,T1,DoS Hulk
+validation-195755,T1,DoS Hulk
+validation-226279,T1,DoS GoldenEye
+validation-227814,T1,DoS GoldenEye
+validation-288462,T1,Web Attack – XSS
+validation-288546,T1,Web Attack – Brute Force
+validation-299537,T1,BENIGN
+validation-299634,T1,Web Attack – XSS
+validation-300260,T1,Web Attack – Brute Force
+validation-303132,T1,BENIGN
+validation-303393,T1,BENIGN
+validation-330589,T1,BENIGN
+validation-331863,T1,Bot
+validation-331867,T1,Infiltration
+validation-373214,T1,Bot
+validation-387702,T1,BENIGN
+validation-388196,T1,BENIGN
+validation-399832,T1,BENIGN
+validation-406529,T1,PortScan
+validation-458072,T1,DDoS
+validation-459353,T1,BENIGN

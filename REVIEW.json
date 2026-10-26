@@ -1,0 +1,81 @@
+{
+  "status": "PASS",
+  "completed_fits": 4,
+  "reviewed_prediction_rows": 1954533,
+  "confusion_matrix_cells": 900,
+  "cv_mean": 0.722988840889803,
+  "cv_sample_sd": 0.07571507433871205,
+  "fits": [
+    {
+      "fit_id": "CT1_fold0_ad95567cfe949630",
+      "role": "cv",
+      "fold_id": 0,
+      "rows": 481847,
+      "metrics": {
+        "accuracy": 0.9924976185386648,
+        "supported_class_macro_precision": 0.7598454686552741,
+        "supported_class_macro_recall": 0.8014183917310085,
+        "supported_class_macro_f1": 0.7733670006039866,
+        "kappa": 0.9754888222047674,
+        "benign_false_alarms": 3428,
+        "benign_rows": 400256,
+        "benign_false_alarm_rate": 0.008564518708026863,
+        "supported_classes": 14
+      }
+    },
+    {
+      "fit_id": "CT1_fold1_16699e3b115ec4f7",
+      "role": "cv",
+      "fold_id": 1,
+      "rows": 491729,
+      "metrics": {
+        "accuracy": 0.9370628943991508,
+        "supported_class_macro_precision": 0.647844244504099,
+        "supported_class_macro_recall": 0.6610425079467399,
+        "supported_class_macro_f1": 0.6359183967137512,
+        "kappa": 0.8157124965896243,
+        "benign_false_alarms": 14067,
+        "benign_rows": 400255,
+        "benign_false_alarm_rate": 0.035145095001936265,
+        "supported_classes": 14
+      }
+    },
+    {
+      "fit_id": "CT1_fold2_89dc8b2d486cd6e8",
+      "role": "cv",
+      "fold_id": 2,
+      "rows": 499116,
+      "metrics": {
+        "accuracy": 0.990817765809952,
+        "supported_class_macro_precision": 0.7322356628291715,
+        "supported_class_macro_recall": 0.8029222981932084,
+        "supported_class_macro_f1": 0.759681125351671,
+        "kappa": 0.9692180041319992,
+        "benign_false_alarms": 4332,
+        "benign_rows": 417494,
+        "benign_false_alarm_rate": 0.010376197023190752,
+        "supported_classes": 14
+      }
+    },
+    {
+      "fit_id": "CT1_training_65106665a5cc2b49",
+      "role": "validation",
+      "fold_id": null,
+      "rows": 481841,
+      "metrics": {
+        "accuracy": 0.9949568426099066,
+        "supported_class_macro_precision": 0.7703523955578442,
+        "supported_class_macro_recall": 0.8017918449893819,
+        "supported_class_macro_f1": 0.7803373075284699,
+        "kappa": 0.9834253026046911,
+        "benign_false_alarms": 2254,
+        "benign_rows": 400247,
+        "benign_false_alarm_rate": 0.00563152253483474,
+        "supported_classes": 14
+      }
+    }
+  ],
+  "consumed_test_read": false,
+  "independent_ct1_test_evaluated": false,
+  "scope": "All candidate prediction rows and saved identifying fields checked; metrics rebuilt from counts; no fit or new test prediction."
+}
