@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "purpose": "Style audit and redesign of the existing saved-model demonstration",
+  "before_findings": [
+    "Research warning and comparison prose dominated the first screen",
+    "Eight performance metrics preceded the prediction",
+    "Historical model selection and large input preview obscured the main action",
+    "There was no analyst-workflow demonstration"
+  ],
+  "implemented": [
+    "Two views: Try a prediction and Workplace simulation",
+    "Selected CT1 used automatically; research detail in collapsed About panel",
+    "Four curated real examples including a false alarm",
+    "Compact input summary, clear result card, persistent keyed results",
+    "CSV validation and exact prediction download retained",
+    "Illustrated office replay with play, pause, next, reset and review status",
+    "Fictional aliases/time and source replay disclosed"
+  ],
+  "model_sha256": "0dfa9fef07f16ecd36f7af7255e390d515842e4367af86da022a4e43c5318492",
+  "model_binaries_changed": false,
+  "feature_formulas_changed": false,
+  "training_performed": false,
+  "simulation": {
+    "events": 12,
+    "distinct_validation_examples": 11,
+    "normal_example_replayed_twice": true,
+    "real_model_predictions": true,
+    "fictional_display_fields": [
+      "device alias",
+      "time",
+      "arrival order"
+    ],
+    "live_network_capture": false,
+    "network_actions": false,
+    "review_state_scope": "current browser session"
+  },
+  "checks": {
+    "focused_tests": 5,
+    "tests_passed": 5,
+    "browser_prediction_rows_matched": 31,
+    "browser_auto_replay": true,
+    "browser_pause_and_review": true,
+    "mobile_width_px": 390,
+    "horizontal_page_overflow": false,
+    "invalid_csv_disables_prediction_and_clears_result": true,
+    "automatic_accessibility_check": {
+      "state": "normal prediction screen",
+      "violations": 0,
+      "incomplete_checks": 1,
+      "note": "Automated snapshot check; not a full accessibility certification."
+    }
+  },
+  "run_checks": "python -m unittest discover -s tests -v",
+  "deployment_url": "https://cicids2017-model-demo.streamlit.app/"
+}
