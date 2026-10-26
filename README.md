@@ -2,15 +2,15 @@
 
 **[Open the live demonstration](https://cicids2017-model-demo.streamlit.app/)**
 
-Use saved Random Forest models to classify prepared network-traffic windows. Choose **T1** (historical model with a completed final test) or **C+T1 / CT1** (preferred exploratory follow-up).
+Use saved Random Forest models to classify prepared network-traffic windows. Choose **T1** (historical model with a completed final test) or **C+T1 / CT1** (selected study model).
 
 | Evidence | T1 | C+T1 |
 |---|---:|---:|
 | Mean grouped CV Macro F1 | 71.43% | 72.30% |
 | Validation Macro F1 | 77.75% | 78.03% |
-| Historical independent test Macro F1 | 85.77% | Not evaluated |
+| Original test Macro F1 | 85.77% (historical) | 87.31% (previously examined test) |
 
-The small CV gain does not establish a reliable improvement. See [reviewed results](RESULTS.md) and [prediction reconstruction](REVIEW.json). This app predicts only; it does not train or monitor live network traffic.
+CT1 test accuracy is **99.52%** and benign false alarms are **2,213 / 417,513 (0.53%)**. This same test was previously examined for T1; CT1 was not fitted on it and was frozen before its own scoring, but this is **not fresh independent confirmation**. No tuning used these scores. The small CV gain does not establish a reliable improvement. See [reviewed results](RESULTS.md) and [prediction reconstruction](REVIEW.json). This app predicts only; it does not train or monitor live network traffic.
 
 ## Run on your computer
 
@@ -48,4 +48,4 @@ The hosted app is live. Both hosted prediction downloads match all 31 saved exam
 
 Public explanations: [project reviewer](https://landotin.github.io/cicids2017-project-reviewer/). Original research repository: [CICIDS2017-Attack-Classification](https://github.com/xtian413/CICIDS2017-Attack-Classification) (project access may be required).
 
-Reviewed 26 October 2026. T1's historical result remains unchanged; C+T1 has not received a new independent final test.
+Reviewed 26 October 2026. CT1's test metrics and full row/matrix review are in TEST_EVIDENCE. T1's historical result is unchanged. The separate official-flow comparison is outside the current study/report.

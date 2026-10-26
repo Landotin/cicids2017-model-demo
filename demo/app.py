@@ -50,7 +50,7 @@ MANIFEST_SCHEMA_VERSION = 1
 MODEL_NAMES = ("T1", "CT1")
 EXPECTED_EVIDENCE = {
     "T1": "historical_tested",
-    "CT1": "exploratory_cv_validation",
+    "CT1": "selected_previously_examined_test",
 }
 TRAINING_ONLY_LABELS = {"Heartbleed"}
 MAX_UPLOAD_BYTES = 2_000_000
@@ -534,6 +534,21 @@ def load_bundle(bundle_dir: str | Path) -> LoadedBundle:
     if not isinstance(records, dict) or set(records) != set(MODEL_NAMES):
         raise BundleError("manifest.json must contain exactly the reviewed T1 and CT1 model records.")
 
+    # Public score display is tied to the reviewed test completion record.
+    evidence = REPO_ROOT / "TEST_EVIDENCE/complete.json"
+    if not evidence.is_file() or _sha256(evidence) != manifest.get("test_evidence_record_sha256"):
+        raise BundleError("The reviewed test evidence is missing or changed.")
+    measured = json.loads(evidence.read_text(encoding="utf-8"))
+    if (measured.get("selected_model", {}).get("sha256") != records["CT1"].get("sha256")
+            or measured.get("fresh_independent_test") is not False
+            or measured.get("model_refitted") is not False):
+        raise BundleError("The displayed test result does not identify this saved model.")
+    for shown, saved in (("test_macro_f1", "supported_class_macro_f1"),
+                         ("test_accuracy", "accuracy"),
+                         ("test_false_alarm_rate", "benign_false_alarm_rate")):
+        if records["CT1"]["metrics"].get(shown) != measured["metrics"].get(saved):
+            raise BundleError("The displayed score differs from reviewed test evidence.")
+
     root_resolved = root.resolve()
     models: dict[str, RandomForestClassifier] = {}
     for name in MODEL_NAMES:
@@ -634,9 +649,12 @@ def _show_evidence(record: dict[str, Any], model_name: str) -> None:
     if model_name == "T1":
         st.info("T1 is the historical frozen model. Its earlier test result belongs to T1 only.")
     else:
-        st.info("C+T1 is exploratory CV and validation evidence only; it has no independent test result.")
+        st.info("C+T1 is the selected 19-input model. Its test used the original partition previously examined for T1; it is not fresh independent confirmation.")
     metrics = record.get("metrics", {})
     fields = (
+        ("test_macro_f1", "Test Macro F1"),
+        ("test_accuracy", "Test accuracy"),
+        ("test_false_alarm_rate", "Test benign false-alarm rate"),
         ("cv_macro_f1_mean", "Grouped CV Macro F1"),
         ("cv_macro_f1_std", "CV sample SD"),
         ("validation_macro_f1", "Validation Macro F1"),
@@ -693,9 +711,9 @@ def main() -> None:
         st.stop()
 
     models_record = bundle.manifest["models"]
-    st.info("C+T1 is the preferred candidate in this follow-up: mean grouped CV Macro F1 "
+    st.info("C+T1 is the selected study model: mean grouped CV Macro F1 "
             "was 72.30%, versus T1's 71.43%. The gain is small across three folds. "
-            "T1 retains the historical final-test result; C+T1 has no independent test result.")
+            "C+T1 reached 87.31% test Macro F1 without refitting. This test was already examined for T1, so it is not fresh independent evidence.")
     with st.expander("Download the reviewed example files"):
         st.caption("These 31 selected validation rows include correct predictions and mistakes. "
                    "They are examples for the presentation, not a performance benchmark.")
@@ -749,7 +767,8 @@ def main() -> None:
     selected = st.selectbox(
         "Model",
         MODEL_NAMES,
-        format_func=lambda name: "C+T1 · 19 inputs · exploratory" if name == "CT1"
+        index=1,
+        format_func=lambda name: "C+T1 · 19 inputs · selected" if name == "CT1"
         else "T1 · 15 inputs · historical",
     )
     _show_evidence(models_record[selected], selected)

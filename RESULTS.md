@@ -1,3 +1,11 @@
+# Selected model: measured test result
+
+CT1 uses 19 inputs and reached **87.31% supported-class Macro F1**, **99.52% accuracy**, macro precision **85.48%**, macro recall **91.27%**, kappa **0.98364** and **2,213 / 417,513 benign false alarms (0.53%)** on 499,109 rows. No fitting or tuning occurred. All row identities and 225 confusion cells passed review; see [test evidence](TEST_EVIDENCE/complete.json) and [review](TEST_EVIDENCE/supervisor_review.json).
+
+This is the original test previously examined for T1, not fresh independent confirmation. Heartbleed is N/A; SQL Injection has only two test examples. Bot, Infiltration and XSS still have weak scores. The official-flow comparison is outside the current study/report. The earlier training-only record below is historical.
+
+---
+
 # C+T1 follow-up results
 
 Reviewed: 26 October 2026. **Real training and prediction review passed.**
